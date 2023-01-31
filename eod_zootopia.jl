@@ -5,22 +5,22 @@ using HiGHS
 #package to read excel files
 using XLSX
 
-## COUCOU
-## en Tmax en Y
 
-Tmax = 168 #optimization for 1 week (7*24=168 hours)
-data_file = "data_eod_1_week_winter.xlsx"
+
+Tmax = 8736 #optimization for 1 week (364*24=8736 hours)
+data_file = "Donnees.xlsx"
 #data for load and fatal generation
-load = XLSX.readdata(data_file, "data", "C4:C171")
-wind = XLSX.readdata(data_file, "data", "D4:D171")
-solar = XLSX.readdata(data_file, "data", "E4:E171")
-hydro_fatal = XLSX.readdata(data_file, "data", "F4:F171")
-thermal_fatal = XLSX.readdata(data_file, "data", "G4:G171")
+load = XLSX.readdata(data_file, "conso_prodfatal", "C2:C8737")
+wind = XLSX.readdata(data_file, "conso_prodfatal", "D2:D8737")
+solar = XLSX.readdata(data_file, "conso_prodfatal", "E2:E8737")
+hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F2:F8737")
+thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G2:G8737")
 #total of RES
-Pres = wind + solar + hydro_fatal + thermal_fatal
+P_fatal = wind + solar + hydro_fatal + thermal_fatal
 
 #data for thermal clusters
-Nth = 5 #number of thermal generation units
+Nth = length(XLSX.readdata(data_file, "Parc_electrique", "A2:A15")) #number of thermal generation units
+print(Nth)
 names = XLSX.readdata(data_file, "data", "J4:J8")
 dict_th = Dict(i=> names[i] for i in 1:Nth)
 costs_th = XLSX.readdata(data_file, "data", "K4:K8")
@@ -90,7 +90,7 @@ model = Model(HiGHS.Optimizer)
 #define the constraints
 #############################
 #balance constraint
-@constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + Pres[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
+@constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
 #thermal unit Pmax constraints
 @constraint(model, max_th[t in 1:Tmax, g in 1:Nth], Pth[t,g] <= Pmax_th[g]*UCth[t,g])
 #thermal unit Pmin constraints
@@ -180,7 +180,7 @@ for t in 1:Tmax
     end
     write(f, "$(STEP_charge[t]) ; $(STEP_decharge[t]); $(STEP_stock[t]) ;")
     write(f, "$(battery_charge[t]) ; $(battery_decharge[t]) ; $(battery_stock[t]) ;")
-    write(f, "$(Pres[t]) ;  $(load[t]) ; $(load[t]-Pres[t]) \n")
+    write(f, "$(P_fatal[t]) ;  $(load[t]) ; $(load[t]-P_fatal[t]) \n")
 
 end
 
