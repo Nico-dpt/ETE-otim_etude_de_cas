@@ -6,6 +6,7 @@ using HiGHS
 using XLSX
 
 ## COUCOU
+## en Tmax en Y
 
 Tmax = 168 #optimization for 1 week (7*24=168 hours)
 data_file = "data_eod_1_week_winter.xlsx"
