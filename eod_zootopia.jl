@@ -19,21 +19,21 @@ thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G2:G8737")
 P_fatal = wind + solar + hydro_fatal + thermal_fatal
 
 #data for thermal clusters
-Nth = length(XLSX.readdata(data_file, "Parc_electrique", "A2:A15")) #number of thermal generation units
-print(Nth)
-names = XLSX.readdata(data_file, "data", "J4:J8")
+Nth = 21 #number of thermal generation units
+names = XLSX.readdata(data_file, "Thermal_cluster", "B2:B22")
+print(names)
 dict_th = Dict(i=> names[i] for i in 1:Nth)
-costs_th = XLSX.readdata(data_file, "data", "K4:K8")
-Pmin_th = XLSX.readdata(data_file, "data", "M4:M8") #MW
-Pmax_th = XLSX.readdata(data_file, "data", "L4:L8") #MW
-dmin = XLSX.readdata(data_file, "data", "N4:N8") #hours
+costs_th = XLSX.readdata(data_file, "Thermal_cluster", "I2:I22") # euro/MWh
+Pmin_th = XLSX.readdata(data_file, "Thermal_cluster", "G2:G22") # MW
+Pmax_th = XLSX.readdata(data_file, "Thermal_cluster", "F2:F22") # MW
+dmin = XLSX.readdata(data_file, "Thermal_cluster", "H2:H22") # hours
 
 #data for hydro reservoir
 Nhy = 1 #number of hydro generation units
 Pmin_hy = zeros(Nhy)
-Pmax_hy = XLSX.readdata(data_file, "data", "R4") *ones(Nhy) #MW
-e_hy = XLSX.readdata(data_file, "data", "S4")*ones(Nhy) #MWh
-cost_hydro = XLSX.readdata(data_file, "data", "Q4")
+Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
+stock_hy = XLSX.readdata(data_file, "Stock_hydro", "B1")*ones(Nhy)*10^6 #MWh (B1 est en TWh d'où le 10e6)
+cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
 
 #costs
 cth = repeat(costs_th', Tmax) #cost of thermal generation €/MWh
