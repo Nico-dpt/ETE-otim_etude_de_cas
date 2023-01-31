@@ -5,6 +5,8 @@ using HiGHS
 #package to read excel files
 using XLSX
 
+## COUCOU
+
 Tmax = 168 #optimization for 1 week (7*24=168 hours)
 data_file = "data_eod_1_week_winter.xlsx"
 #data for load and fatal generation
