@@ -47,7 +47,7 @@ cexc = 0*ones(Tmax) #cost of in excess energy €/MWh
 Pmax_STEP = XLSX.readdata(data_file, "Parc_electrique", "E21") #MW
 rSTEP = XLSX.readdata(data_file, "Parc_electrique", "K21")
 stock_volume_STEP = XLSX.readdata(data_file, "Parc_electrique", "L21")
-print(stock_volume_STEP)
+
 
 #battery
 Pmax_battery = 280 #MW
@@ -117,7 +117,7 @@ end
 #hydro stock constraint
 #TODO
 
-@constraint(model, stock_hydro[h in 1:Nhy], sum(Phy[t,h] for t in 1:Tmax) <= e_hy[h])
+@constraint(model, stock_hydro[h in 1:Nhy], sum(Phy[t,h] for t in 1:Tmax) <= stock_hy[h])
 #weekly STEP
 #TODO
 
