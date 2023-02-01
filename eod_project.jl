@@ -37,6 +37,7 @@ cost_hydro = XLSX.readdata(data_file, "data", "Q4")
 
 #costs
 cth = repeat(costs_th', Tmax) #cost of thermal generation €/MWh
+print(cth)
 chy = repeat([cost_hydro], Tmax) #cost of hydro generation €/MWh
 cuns = 5000*ones(Tmax) #cost of unsupplied energy €/MWh
 cexc = 0*ones(Tmax) #cost of in excess energy €/MWh

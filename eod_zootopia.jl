@@ -6,7 +6,6 @@ using HiGHS
 using XLSX
 
 
-
 Tmax = 8736 #optimization for 1 week (364*24=8736 hours)
 data_file = "Donnees.xlsx"
 #data for load and fatal generation
@@ -21,12 +20,13 @@ P_fatal = wind + solar + hydro_fatal + thermal_fatal
 #data for thermal clusters
 Nth = 21 #number of thermal generation units
 names = XLSX.readdata(data_file, "Thermal_cluster", "B2:B22")
-print(names)
+
 dict_th = Dict(i=> names[i] for i in 1:Nth)
 costs_th = XLSX.readdata(data_file, "Thermal_cluster", "I2:I22") # euro/MWh
 Pmin_th = XLSX.readdata(data_file, "Thermal_cluster", "G2:G22") # MW
 Pmax_th = XLSX.readdata(data_file, "Thermal_cluster", "F2:F22") # MW
 dmin = XLSX.readdata(data_file, "Thermal_cluster", "H2:H22") # hours
+
 
 #data for hydro reservoir
 Nhy = 1 #number of hydro generation units
@@ -35,17 +35,19 @@ Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
 stock_hy = XLSX.readdata(data_file, "Stock_hydro", "B1")*ones(Nhy)*10^6 #MWh (B1 est en TWh d'où le 10e6)
 cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
 
+
 #costs
 cth = repeat(costs_th', Tmax) #cost of thermal generation €/MWh
-chy = repeat([cost_hydro], Tmax) #cost of hydro generation €/MWh
+#chy = repeat([cost_hydro], Tmax) #cost of hydro generation €/MWh
+chy = repeat(cost_hydro, Tmax) #cost of hydro generation €/MWh
 cuns = 5000*ones(Tmax) #cost of unsupplied energy €/MWh
 cexc = 0*ones(Tmax) #cost of in excess energy €/MWh
-
 #data for STEP/battery
 #weekly STEP
-Pmax_STEP = 1200 #MW
-rSTEP = 0.75
-stock_volume_STEP = XLSX.readdata(data_file, "data", "S5")
+Pmax_STEP = XLSX.readdata(data_file, "Parc_electrique", "E21") #MW
+rSTEP = XLSX.readdata(data_file, "Parc_electrique", "K21")
+stock_volume_STEP = XLSX.readdata(data_file, "Parc_electrique", "L21")
+print(stock_volume_STEP)
 
 #battery
 Pmax_battery = 280 #MW
@@ -84,7 +86,7 @@ model = Model(HiGHS.Optimizer)
 # #############################
 #define the objective function
 #############################
-@objective(model, Min, sum(Pth.*cth)+sum(Phy.*chy)+Puns'cuns+Pexc'cexc)
+@objective(model, Min, sum(Pth.*cth) + sum(Phy.*chy) + Puns'cuns + Pexc'cexc)
 
 #############################
 #define the constraints
