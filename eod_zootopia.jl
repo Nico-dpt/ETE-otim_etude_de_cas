@@ -5,8 +5,7 @@ using HiGHS
 #package to read excel files
 using XLSX
 
-
-Tmax = 8736 #optimization for 1 week (364*24=8736 hours)
+Tmax = 31*24 #optimization for 1 week (364*24=8736 hours)
 data_file = "Donnees.xlsx"
 #data for load and fatal generation
 load = XLSX.readdata(data_file, "conso_prodfatal", "C2:C8737")
