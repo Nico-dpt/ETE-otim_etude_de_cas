@@ -76,7 +76,6 @@ model = Model(HiGHS.Optimizer)
 #hydro generation variables
 @variable(model, Phy[1:Tmax,1:Nhy] >= 0)
 @variable(model, stock_hydro[1:Tmax,1:Nhy] >=0)
-
 #unsupplied energy variables
 @variable(model, Puns[1:Tmax] >= 0)
 #in excess energy variables
@@ -119,23 +118,32 @@ for g in 1:Nth
     end
 end
 
-
 #hydro unit constraints
 @constraint(model, bounds_hy[t in 1:Tmax, h in 1:Nhy], Pmin_hy[h] <= Phy[t,h] <= Pmax_hy[h])
+#@constraint(model, last_step_hydro[h in 1:Nhy], Phy[Tmax,h] == Pmin_hy[h]) #temps de calcul énorme avec cette contrainte
+
+
 #hydro stock constraint
 @constraint(model, stock_hy[h in 1:Nhy], sum(Phy[t,h] for t in 1:Tmax) <= stock_max_hy[h])
 @constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h])
 @constraint(model, stoch_hy_initial[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h])
 
+
 #weekly STEP
+@constraint(model,turbinage_max[t in 1:Tmax], Pdecharge_STEP[t]<= Pmax_STEP)
+@constraint(model,pompage_max[t in 1:Tmax], Pcharge_STEP[t]<= Pmax_STEP)
+#@constraint(model,stock_initial,stock_STEP[1] ==0)
 for i in 1:4 #modélisation des STEP sur chaque semaine
-    @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], Pdecharge_STEP[t]<= Pmax_STEP, base_name = "turbinage_max_semaine_$i")
-    @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], Pcharge_STEP[t]<= Pmax_STEP, base_name = "pompage_max_semaine_$i")
+    @constraint(model, stock_STEP[1+(i-1)*168] == 0, base_name = "stock_initial_semaine_$i") #stock initial = 0 pour chaque semaine
     @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], stock_STEP[t] <= stock_volume_STEP, base_name = "stock_step_MAX_semaine_$i")
     @constraint(model,[t in (2+(i-1)*168):(168 +(i-1)*168+1)], stock_STEP[t] == stock_STEP[t-1] + Pcharge_STEP[t-1]*rSTEP - Pdecharge_STEP[t-1], base_name = "stock_actuel_STEP_semaine_$i")
+    #@constraint(model, stock_STEP[1+(i-1)*168] == stock_STEP[168+(i-1)*168], base_name = "stock_initial_final_semaine_$i") #stock initial = stock final #inutile ??    
 end
-@constraint(model,stock_initial_final, stock_STEP[1] == stock_STEP[Tmax]) #stock initial = stock final
-@constraint(model,stock_initial, stock_STEP[1] == 0) #stock initial = 0 
+@constraint(model,stock_STEP_initial_last_step, stock_STEP[Tmax] == stock_STEP[1])
+@constraint(model,last_step_STEP_Pturb, Pdecharge_STEP[Tmax] ==0)
+@constraint(model,last_step_STEP_Ppomp, Pcharge_STEP[Tmax] ==0)
+
+
 
 #contrainte sur le dernier pas de temps
 @constraint(model,turbinage_max_final, Pdecharge_STEP[Tmax]<= Pmax_STEP)
@@ -185,7 +193,7 @@ write(f,"Date; heure;")
 for name in names
     write(f, "$name ;")
 end
-write(f, "P_hydro; Hydro_stock; STEP pompage ; STEP turbinage; STEP_stock ; Batterie injection ; Batterie soutirage ; Batterie Stock ; RES ; load ; Net load \n")
+write(f, "P_hydro; Hydro_stock; STEP pompage ; STEP turbinage; STEP_stock ; Batterie injection ; Batterie soutirage ; Batterie Stock ; P_fatal ; load ; Net load \n")
 
 for t in 1:Tmax
     write(f, "$(date[t]) ; $(heure[t]);")
