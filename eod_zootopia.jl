@@ -96,7 +96,7 @@ model = Model(HiGHS.Optimizer)
 @objective(model, Min, sum(Pth.*cth) + sum(Phy.*chy) + Puns'cuns + Pexc'cexc)
 
 #############################
-#define the constraints
+#define the constraints 
 #############################
 #balance constraint
 @constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
@@ -134,10 +134,11 @@ end
 @constraint(model,pompage_max[t in 1:Tmax], Pcharge_STEP[t]<= Pmax_STEP)
 #@constraint(model,stock_initial,stock_STEP[1] ==0)
 for i in 1:4 #modélisation des STEP sur chaque semaine
+    print(i)
     @constraint(model, stock_STEP[1+(i-1)*168] == 0, base_name = "stock_initial_semaine_$i") #stock initial = 0 pour chaque semaine
     @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], stock_STEP[t] <= stock_volume_STEP, base_name = "stock_step_MAX_semaine_$i")
     @constraint(model,[t in (2+(i-1)*168):(168 +(i-1)*168+1)], stock_STEP[t] == stock_STEP[t-1] + Pcharge_STEP[t-1]*rSTEP - Pdecharge_STEP[t-1], base_name = "stock_actuel_STEP_semaine_$i")
-    #@constraint(model, stock_STEP[1+(i-1)*168] == stock_STEP[168+(i-1)*168], base_name = "stock_initial_final_semaine_$i") #stock initial = stock final #inutile ??    
+    #@constraint(model, stock_STEP[1+(i-1)*168] == stock_STEP[1 + i*168], base_name = "stock_initial_final_semaine_$i") #stock initial = stock final #inutile ??    
 end
 @constraint(model,stock_STEP_initial_last_step, stock_STEP[Tmax] == stock_STEP[1])
 @constraint(model,last_step_STEP_Pturb, Pdecharge_STEP[Tmax] ==0)
