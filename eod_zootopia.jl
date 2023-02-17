@@ -5,19 +5,19 @@ using HiGHS
 #package to read excel files
 using XLSX
 
-Tmax = 673 #optimization for 1 month (4 semaines + 1er pas horaire)
+Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
 data_file = "Donnees.xlsx"
 
 #date et heure
-date = XLSX.readdata(data_file, "conso_prodfatal", "A2:A674")
-heure = XLSX.readdata(data_file, "conso_prodfatal", "B2:B674")
+date = XLSX.readdata(data_file, "conso_prodfatal", "A2:A675")
+heure = XLSX.readdata(data_file, "conso_prodfatal", "B2:B675")
 
 #data for load and fatal generation 
-load = XLSX.readdata(data_file, "conso_prodfatal", "C2:C674")
-wind = XLSX.readdata(data_file, "conso_prodfatal", "D2:D674")
-solar = XLSX.readdata(data_file, "conso_prodfatal", "E2:E674")
-hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F2:F674")
-thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G2:G674")
+load = XLSX.readdata(data_file, "conso_prodfatal", "C2:C675")
+wind = XLSX.readdata(data_file, "conso_prodfatal", "D2:D675")
+solar = XLSX.readdata(data_file, "conso_prodfatal", "E2:E675")
+hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F2:F675")
+thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G2:G675")
 #total of RES
 P_fatal = wind + solar + hydro_fatal + thermal_fatal
 
@@ -36,9 +36,13 @@ dmin = XLSX.readdata(data_file, "Thermal_cluster", "H2:H22") # hours
 Nhy = 1 #number of hydro generation units
 Pmin_hy = zeros(Nhy)
 Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
-stock_max_hy = XLSX.readdata(data_file, "Stock_hydro", "B1")*ones(Nhy)*10^6 #MWh (B1 est en TWh d'où le 10e6)
 cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
 stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
+apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S2:S675") #MWh
+stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "E4:E677") #MWh 
+stock_min_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "C4:C677") #MWh
+stock_max_hy_hard = 1.05*stock_max_hy_soft
+stock_min_hy_hard = 0.95*stock_min_hy_soft
 
 #costs
 cth = repeat(costs_th', Tmax) #cost of thermal generation €/MWh
@@ -75,6 +79,12 @@ model = Model(HiGHS.Optimizer)
 #hydro generation variables
 @variable(model, Phy[1:Tmax,1:Nhy] >= 0)
 @variable(model, stock_hydro[1:Tmax,1:Nhy] >=0)
+@variable(model, stock_max_depasse_horaire[1:Tmax,1:Nhy] >=0) # Stock que l'on s'autorise à ne pas prélever en plus 
+@variable(model, stock_min_depasse_horaire[1:Tmax,1:Nhy] >=0) # Stock que l'on s'autorise à prélever en plus 
+@variable(model, num_violations_max[1:Nhy], Int)
+@variable(model, num_violations_min[1:Nhy], Int)
+
+
 #unsupplied energy variables
 @variable(model, Puns[1:Tmax] >= 0)
 #in excess energy variables
@@ -119,13 +129,32 @@ end
 
 #hydro unit constraints
 @constraint(model, bounds_hy[t in 1:Tmax, h in 1:Nhy], Pmin_hy[h] <= Phy[t,h] <= Pmax_hy[h])
-#@constraint(model, last_step_hydro[h in 1:Nhy], Phy[Tmax,h] == Pmin_hy[h]) #temps de calcul énorme avec cette contrainte
-
+@constraint(model, last_step_hydro[h in 1:Nhy], Phy[Tmax,h] == Pmin_hy[h]) 
 
 #hydro stock constraint
-@constraint(model, stock_hy[h in 1:Nhy], sum(Phy[t,h] for t in 1:Tmax) <= stock_max_hy[h])
-@constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h])
-@constraint(model, stoch_hy_initial[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h])
+@constraint(model, stoch_hy_initial[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h]) # stock initial
+@constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_initial[h]) #stock final = stock initial
+@constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h] + apport_hydro[t-1,h]) #contrainte liant stock, turbinage et apport
+@constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
+@constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
+
+
+# print(stock_max_depasse_horaire[1,1] > 0)
+# @constraint(model, soft_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_soft[h] + stock_max_depasse_horaire[t,h])
+# @constraint(model, soft_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_soft[h] - stock_min_depasse_horaire[t,h])
+# @constraint(model, max_violation[h in 1:Nhy], num_violations_max[h] >= sum([stock_max_depasse_horaire[t,h] > 0 for t in 1:Tmax]))
+# @constraint(model, min_violation[h in 1:Nhy],  num_violations_min[h] >= sum([stock_min_depasse_horaire[t,h] > 0 for t in 1:Tmax]))
+# @constraint(model, num_violations_max[h in 1:Nhy] <= 20)
+# @constraint(model, num_violations_min[h in 1:Nhy] <= 20)
+
+
+#@constraint(model, nombre_de_depassement_max_hy[h in 1:Nhy], sum(depassement_max_hy[t,h] for t in 1:Tmax) <= 20)
+#@constraint(model, nombre_de_depassement_min_hy[h in 1:Nhy], sum(depassement_min_hy[t,h] for t in 1:Tmax) <= 20)
+#@constraint(model, depassement_max[h in 1:Nhy,t in 1:Tmax], (1-2*depassement_max_hy[t,h])*(stock_max_hy_soft - stock_hydro[t,h]) >= 0)
+#@constraint(model, depassement_min[h in 1:Nhy,t in 1:Tmax], (1-2*depassement_min_hy[t,h])*(stock_min_hy_soft - stock_hydro[t,h]) <= 0)
+
+
+
 
 
 #weekly STEP
@@ -140,7 +169,9 @@ for i in 1:4 #modélisation des STEP sur chaque semaine
 end
 @constraint(model,stock_STEP_initial_last_step, stock_STEP[Tmax] == stock_STEP[1])
 @constraint(model,last_step_STEP_Pturb, Pdecharge_STEP[Tmax] ==0)
+@constraint(model,last2_step_STEP_Pturb, Pdecharge_STEP[Tmax-1] ==0)
 @constraint(model,last_step_STEP_Ppomp, Pcharge_STEP[Tmax] ==0)
+@constraint(model,last2_step_STEP_Ppomp, Pcharge_STEP[Tmax-1] ==0)
 
 
 
