@@ -133,7 +133,6 @@ end
 @constraint(model,pompage_max[t in 1:Tmax], Pcharge_STEP[t]<= Pmax_STEP)
 #@constraint(model,stock_initial,stock_STEP[1] ==0)
 for i in 1:4 #modélisation des STEP sur chaque semaine
-    print(i)
     @constraint(model, stock_STEP[1+(i-1)*168] == 0, base_name = "stock_initial_semaine_$i") #stock initial = 0 pour chaque semaine
     @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], stock_STEP[t] <= stock_volume_STEP, base_name = "stock_step_MAX_semaine_$i")
     @constraint(model,[t in (2+(i-1)*168):(168 +(i-1)*168+1)], stock_STEP[t] == stock_STEP[t-1] + Pcharge_STEP[t-1]*rSTEP - Pdecharge_STEP[t-1], base_name = "stock_actuel_STEP_semaine_$i")
