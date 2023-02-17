@@ -40,7 +40,6 @@ stock_max_hy = XLSX.readdata(data_file, "Stock_hydro", "B1")*ones(Nhy)*10^6 #MWh
 cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
 stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
 
-
 #costs
 cth = repeat(costs_th', Tmax) #cost of thermal generation €/MWh
 chy = repeat(cost_hydro, Tmax) #cost of hydro generation €/MWh
