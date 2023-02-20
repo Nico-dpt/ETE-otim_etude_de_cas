@@ -212,10 +212,10 @@ hydro_stock = value.(stock_hydro)
 
 
 # new file created
-touch("results_4firstweek.csv")
+touch("results_final.csv")
 
 # file handling in write mode
-f = open("results_4firstweek.csv", "w")
+f = open("results_final.csv", "w")
 
 
 write(f,"Date; heure;")

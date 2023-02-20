@@ -4,9 +4,11 @@ using JuMP
 using HiGHS
 #package to read excel files
 using XLSX
+using CSV
 
 Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
 data_file = "Donnees.xlsx"
+data_limit_condition = "results_final.csv"
 for k in 1:11
     #date et heure
     date = XLSX.readdata(data_file, "conso_prodfatal", "A"*string(2+k*672)*":A"*string(675+k*672))
@@ -30,6 +32,9 @@ for k in 1:11
     Pmin_th = XLSX.readdata(data_file, "Thermal_cluster", "G2:G22") # MW
     Pmax_th = XLSX.readdata(data_file, "Thermal_cluster", "F2:F22") # MW
     dmin = XLSX.readdata(data_file, "Thermal_cluster", "H2:H22") # hours
+
+    # read data condition initial/finale 
+    hydro_initial = CSV.read(data_limit_condition,"B3")
 
 
     #data for hydro reservoir
