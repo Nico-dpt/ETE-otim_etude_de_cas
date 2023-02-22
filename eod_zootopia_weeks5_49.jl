@@ -14,7 +14,7 @@ for k in 1:1
     #date et heure
     date = XLSX.readdata(data_file, "conso_prodfatal", "A"*string(2+k*672)*":A"*string(675+k*672))
     heure = XLSX.readdata(data_file, "conso_prodfatal", "B"*string(2+k*672)*":B"*string(675+k*672))
-
+ 
     #data for load and fatal generation 
     load = XLSX.readdata(data_file, "conso_prodfatal", "C"*string(2+k*672)*":C"*string(675+k*672))
     wind = XLSX.readdata(data_file, "conso_prodfatal", "D"*string(2+k*672)*":D"*string(675+k*672))
@@ -118,15 +118,16 @@ for k in 1:1
     Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
     @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
 
-    # hydro initial
-    Phy_initial = data_limit_condition[673 + (k-1)*672, 24]
-    stock_hydro_initial = data_limit_condition[673 + (k-1)*672, 25]
-    @constraint(model, initial_Phy[h in 1:Nhy], Phy[1,h] == Phy_initial[h])
-    @constraint(model, initial_stock_hy[h in 1:Nhy], Phy[1,h] == stock_hydro_initial[h])
+    
 
-
+    ## CONSTRAINT
     #balance constraint
     @constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
+    ########################################################################################
+    ## THERMIQUE
+    #thermique initial
+    Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
+    @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
     #thermal unit Pmax constraints
     @constraint(model, max_th[t in 1:Tmax, g in 1:Nth], Pth[t,g] <= Pmax_th[g]*UCth[t,g])
     #thermal unit Pmin constraints
@@ -145,20 +146,26 @@ for k in 1:1
         end
     end
 
+    ##########################################################################################
+    ## HYDRO
     #hydro unit constraints
     @constraint(model, bounds_hy[t in 1:Tmax, h in 1:Nhy], Pmin_hy[h] <= Phy[t,h] <= Pmax_hy[h])
-
     #hydro stock constraint
     @constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_initial[h]) #stock final = stock initial
     @constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h] + apport_hydro[t-1,h]) #contrainte liant stock, turbinage et apport
     @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
     @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
+    # hydro initial
+    Phy_initial = data_limit_condition[673 + (k-1)*672, 24]
+    stock_hydro_initial = data_limit_condition[673 + (k-1)*672, 25]
+    @constraint(model, initial_Phy[h in 1:Nhy], Phy[1,h] == Phy_initial[h])
+    @constraint(model, initial_stock_hy[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h])
 
-
+    #########################################################################################
     #weekly STEP
     @constraint(model,turbinage_max[t in 1:Tmax], Pdecharge_STEP[t]<= Pmax_STEP)
     @constraint(model,pompage_max[t in 1:Tmax], Pcharge_STEP[t]<= Pmax_STEP)
-    #@constraint(model,stock_initial,stock_STEP[1] ==0)
+    #@constraint(model,stock_initial,stock_STEP[1] == 0)
     for i in 1:4 #modélisation des STEP sur chaque semaine
         @constraint(model, stock_STEP[1+(i-1)*168] == 0, base_name = "stock_initial_semaine_$i") #stock initial = 0 pour chaque semaine
         @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], stock_STEP[t] <= stock_volume_STEP, base_name = "stock_step_MAX_semaine_$i")
@@ -166,10 +173,10 @@ for k in 1:1
         #@constraint(model, stock_STEP[1+(i-1)*168] == stock_STEP[1 + i*168], base_name = "stock_initial_final_semaine_$i") #stock initial = stock final #inutile ??    
     end
     @constraint(model,stock_STEP_initial_last_step, stock_STEP[Tmax] == stock_STEP[1])
-    @constraint(model,last2_step_STEP_Pturb, Pdecharge_STEP[Tmax-1] ==0)
-    @constraint(model,last2_step_STEP_Ppomp, Pcharge_STEP[Tmax-1] ==0)
+    @constraint(model,last2_step_STEP_Pturb, Pdecharge_STEP[Tmax-1] == 0)
+    @constraint(model,last2_step_STEP_Ppomp, Pcharge_STEP[Tmax-1] == 0)
 
-
+    #########################################################################################
     # Battery constraints
     # initial
     charge_battery_initial = data_limit_condition[673 + (k-1)*672 ,29]
@@ -184,7 +191,7 @@ for k in 1:1
     @constraint(model,battery_charge_max[t in 1:Tmax], Pcharge_battery[t]<= Pmax_battery)
     @constraint(model,stock_max_battery[t in 1:Tmax], stock_battery[t] <= Pmax_battery*d_battery)
     @constraint(model,stock_actuel_battery[t in 2:Tmax+1], stock_battery[t] == stock_battery[t-1] + Pcharge_battery[t-1]*rbattery - Pdecharge_battery[t-1]/rbattery)
-    @constraint(model,stock_initial_final_battery, stock_battery[1] == stock_battery[Tmax])
+    @constraint(model,stock_initial_final_battery, stock_battery[Tmax] == stock_battery_initial)
     
 
     #no need to print the model when it is too big
