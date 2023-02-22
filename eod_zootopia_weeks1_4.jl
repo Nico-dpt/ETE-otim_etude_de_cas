@@ -39,10 +39,11 @@ Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
 cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
 stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
 apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S2:S675") #MWh
-stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "E4:E677") #MWh 
-stock_min_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "C4:C677") #MWh
+stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "O4:O677") #MWh 
+stock_min_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "M4:M677") #MWh
 stock_max_hy_hard = 1.05*stock_max_hy_soft
 stock_min_hy_hard = 0.95*stock_min_hy_soft
+
 
 #costs
 cth = repeat(costs_th', Tmax) #cost of thermal generation €/MWh
@@ -199,15 +200,15 @@ optimize!(model)
 
 
 #exports results as csv file
-th_gen = value.(Pth)
-hy_gen = value.(Phy)
-STEP_charge = value.(Pcharge_STEP)
-STEP_decharge = value.(Pdecharge_STEP)
-STEP_stock = value.(stock_STEP)
-battery_charge = value.(Pcharge_battery)
-battery_decharge = value.(Pdecharge_battery)
-battery_stock = value.(stock_battery)
-hydro_stock = value.(stock_hydro)
+th_gen = abs.(value.(Pth))
+hy_gen = abs.(value.(Phy))
+STEP_charge = abs.(value.(Pcharge_STEP))
+STEP_decharge = abs.(value.(Pdecharge_STEP))
+STEP_stock = abs.(value.(stock_STEP))
+battery_charge = abs.(value.(Pcharge_battery))
+battery_decharge = abs.(value.(Pdecharge_battery))
+battery_stock = abs.(value.(stock_battery))
+hydro_stock = abs.(value.(stock_hydro))
 
 
 
@@ -218,12 +219,12 @@ touch("results_final.csv")
 f = open("results_final.csv", "w")
 
 
-write(f,"Date; heure;")
+write(f,"Date ;heure ;")
 
 for name in names
     write(f, "$name ;")
 end
-write(f, "P_hydro; Hydro_stock; STEP pompage ; STEP turbinage; STEP_stock ; Batterie injection ; Batterie soutirage ; Batterie Stock ; P_fatal ; load ; Net load \n")
+write(f, "P_hydro ;Hydro_stock ;STEP pompage ;STEP turbinage ;STEP_stock ;Batterie injection ;Batterie soutirage ;Batterie Stock ;P_fatal ;load ;Net load \n")
 
 for t in 1:Tmax
     write(f, "$(date[t]) ; $(heure[t]);")
