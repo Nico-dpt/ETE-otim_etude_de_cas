@@ -62,9 +62,9 @@ for k in 1:1
 
 
     #battery
-    Pmax_battery = 280 #MW
-    rbattery = 0.85
-    d_battery = 2 #hours
+    global Pmax_battery = 280 #MW
+    global rbattery = 0.85
+    global d_battery = 2 #hours
 
 
     #############################
@@ -113,11 +113,7 @@ for k in 1:1
     #############################
     # INITIAL constraint
     # read data condition initial/finale 
-    data_limit_condition = CSV.read(limit_condition_file, DataFrame ; header = true)
-    # thermique initial
-    Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
-    @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
-
+    global data_limit_condition = CSV.read(limit_condition_file, DataFrame ; header = true)
     
 
     ## CONSTRAINT
@@ -126,7 +122,7 @@ for k in 1:1
     ########################################################################################
     ## THERMIQUE
     #thermique initial
-    Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
+    global Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
     @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
     #thermal unit Pmax constraints
     @constraint(model, max_th[t in 1:Tmax, g in 1:Nth], Pth[t,g] <= Pmax_th[g]*UCth[t,g])
@@ -156,8 +152,8 @@ for k in 1:1
     @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
     @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
     # hydro initial
-    Phy_initial = data_limit_condition[673 + (k-1)*672, 24]
-    stock_hydro_initial = data_limit_condition[673 + (k-1)*672, 25]
+    global Phy_initial = data_limit_condition[673 + (k-1)*672, 24]
+    global stock_hydro_initial = data_limit_condition[673 + (k-1)*672, 25]
     @constraint(model, initial_Phy[h in 1:Nhy], Phy[1,h] == Phy_initial[h])
     @constraint(model, initial_stock_hy[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h])
 
@@ -179,9 +175,9 @@ for k in 1:1
     #########################################################################################
     # Battery constraints
     # initial
-    charge_battery_initial = data_limit_condition[673 + (k-1)*672 ,29]
-    decharge_battery_initial = data_limit_condition[673 + (k-1)*672, 30]
-    stock_battery_initial = data_limit_condition[673 + (k-1)*672, 31]
+    global charge_battery_initial = data_limit_condition[673 + (k-1)*672 ,29]
+    global decharge_battery_initial = data_limit_condition[673 + (k-1)*672, 30]
+    global stock_battery_initial = data_limit_condition[673 + (k-1)*672, 31]
     @constraint(model, initial_charge_battery, Pcharge_battery[1] == charge_battery_initial)
     @constraint(model, initial_decharge_battery, Pdecharge_battery[1] == decharge_battery_initial)
     @constraint(model, initial_stock_battery, stock_battery[1] == stock_battery_initial)
@@ -204,20 +200,20 @@ for k in 1:1
 
 
     #exports results as csv file
-    th_gen = value.(Pth)
-    hy_gen = value.(Phy)
-    STEP_charge = value.(Pcharge_STEP)
-    STEP_decharge = value.(Pdecharge_STEP)
-    STEP_stock = value.(stock_STEP)
-    battery_charge = value.(Pcharge_battery)
-    battery_decharge = value.(Pdecharge_battery)
-    battery_stock = value.(stock_battery)
-    hydro_stock = value.(stock_hydro)
+    global th_gen = abs.(value.(Pth))
+    global hy_gen = abs.(value.(Phy))
+    global STEP_charge = abs.(value.(Pcharge_STEP))
+    global STEP_decharge = abs.(value.(Pdecharge_STEP))
+    global STEP_stock = abs.(value.(stock_STEP))
+    global battery_charge = abs.(value.(Pcharge_battery))
+    global battery_decharge = abs.(value.(Pdecharge_battery))
+    global battery_stock = abs.(value.(stock_battery))
+    global hydro_stock = abs.(value.(stock_hydro))
 
 
     # file handling in write mode
-    f = open("results_final.csv", "w")
-    seek(f,675)
+    global f = XSLX.open("results_final.csv", "w")
+    XLSX.seek(f,675)
 
     for t in 1:Tmax
         write(f, "$(date[t]) ; $(heure[t]);")
