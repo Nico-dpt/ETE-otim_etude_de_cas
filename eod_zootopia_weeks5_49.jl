@@ -9,7 +9,7 @@ using CSV, DataFrames
 Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
 data_file = "Donnees.xlsx"
 limit_condition_file = "results_final.csv"
-for k in 1:1
+for k in 1:3
     print(k)
     #date et heure
     date = XLSX.readdata(data_file, "conso_prodfatal", "A"*string(2+k*672)*":A"*string(675+k*672))
@@ -113,7 +113,7 @@ for k in 1:1
     #############################
     # INITIAL constraint
     # read data condition initial/finale 
-    global data_limit_condition = CSV.read(limit_condition_file, DataFrame ; header = true)
+    data_limit_condition = CSV.read(limit_condition_file, DataFrame ; header = true)
     
 
     ## CONSTRAINT
@@ -211,23 +211,27 @@ for k in 1:1
     global hydro_stock = abs.(value.(stock_hydro))
 
 
-    # file handling in write mode
-    global f = XSLX.open("results_final.csv", "w")
-    XLSX.seek(f,675)
+    # write result
+    df = CSV.read("results_final.csv", DataFrame ; header =true)
+    print(size(df))
+    delete!(df,[673 + (k-1)*672, 674 + (k-1)*672])
 
     for t in 1:Tmax
-        write(f, "$(date[t]) ; $(heure[t]);")
-        for g in 1:Nth
-            write(f, "$(th_gen[t,g]) ; ")
-        end
-        for h in 1:Nhy
-            write(f, "$(hy_gen[t,h]); $(hydro_stock[t,h]) ;")
-        end
-        write(f, "$(STEP_charge[t]) ; $(STEP_decharge[t]); $(STEP_stock[t]) ;")
-        write(f, "$(battery_charge[t]) ; $(battery_decharge[t]) ; $(battery_stock[t]) ;")
-        write(f, "$(P_fatal[t]) ;  $(load[t]) ; $(load[t]-P_fatal[t]) \n")
-
+        push!(df, vcat(date[t],
+                   heure[t],
+                   th_gen[t,:],
+                   hy_gen[t,:],
+                   hydro_stock[t,:],
+                   STEP_charge[t],
+                   STEP_decharge[t],
+                   STEP_stock[t], 
+                   battery_charge[t], 
+                   battery_decharge[t], 
+                   battery_stock[t], 
+                   P_fatal[t], 
+                   load[t], 
+                   load[t]-P_fatal[t]), promote=true)
     end
+    CSV.write("results_final.csv", df, delim=';')
 
-    close(f)
 end
