@@ -122,7 +122,7 @@ for k in 1:3
     ########################################################################################
     ## THERMIQUE
     #thermique initial
-    global Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
+    Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
     @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
     #thermal unit Pmax constraints
     @constraint(model, max_th[t in 1:Tmax, g in 1:Nth], Pth[t,g] <= Pmax_th[g]*UCth[t,g])
