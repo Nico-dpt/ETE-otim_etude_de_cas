@@ -9,7 +9,7 @@ using CSV, DataFrames
 Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
 data_file = "Donnees.xlsx"
 limit_condition_file = "results_final.csv"
-for k in 1:3
+for k in 1:11
     print(k)
     #date et heure
     date = XLSX.readdata(data_file, "conso_prodfatal", "A"*string(2+k*672)*":A"*string(675+k*672))
@@ -33,8 +33,6 @@ for k in 1:3
     Pmin_th = XLSX.readdata(data_file, "Thermal_cluster", "G2:G22") # MW
     Pmax_th = XLSX.readdata(data_file, "Thermal_cluster", "F2:F22") # MW
     dmin = XLSX.readdata(data_file, "Thermal_cluster", "H2:H22") # hours
-    
-
 
     #data for hydro reservoir
     Nhy = 1 #number of hydro generation units
@@ -59,7 +57,6 @@ for k in 1:3
     Pmax_STEP = XLSX.readdata(data_file, "Parc_electrique", "E21") #MW
     rSTEP = XLSX.readdata(data_file, "Parc_electrique", "K21")
     stock_volume_STEP = XLSX.readdata(data_file, "Parc_electrique", "L21")
-
 
     #battery
     global Pmax_battery = 280 #MW
@@ -88,7 +85,6 @@ for k in 1:3
     @variable(model, num_violations_max[1:Nhy], Int)
     @variable(model, num_violations_min[1:Nhy], Int)
 
-
     #unsupplied energy variables
     @variable(model, Puns[1:Tmax] >= 0)
     #in excess energy variables
@@ -113,15 +109,19 @@ for k in 1:3
     #############################
     # INITIAL constraint
     # read data condition initial/finale 
-    data_limit_condition = CSV.read(limit_condition_file, DataFrame ; header = true)
+    print("a")
+    data_limit_condition = CSV.read(limit_condition_file, DataFrame , header = true, delim = ";")
+    print(data_limit_condition)
     
 
+    print("b")
     ## CONSTRAINT
     #balance constraint
     @constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
     ########################################################################################
     ## THERMIQUE
     #thermique initial
+    print("c")
     Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
     @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
     #thermal unit Pmax constraints
@@ -129,7 +129,9 @@ for k in 1:3
     #thermal unit Pmin constraints
     @constraint(model, min_th[t in 1:Tmax, g in 1:Nth], Pmin_th[g]*UCth[t,g] <= Pth[t,g])
     #thermal unit Dmin constraints
+    print("d")
     for g in 1:Nth
+        print(g)
             if (dmin[g] > 1)
                 @constraint(model, [t in 2:Tmax], UCth[t,g]-UCth[t-1,g]==UPth[t,g]-DOth[t,g],  base_name = "fct_th_$g")
                 @constraint(model, [t in 1:Tmax], UPth[t]+DOth[t]<=1,  base_name = "UPDOth_$g")
@@ -141,6 +143,7 @@ for k in 1:3
                 @constraint(model, [t in 1:dmin[g]-1], UCth[t,g] <= 1-sum(DOth[i,g] for i in 1:t), base_name = "dminDOth_$(g)_init")
         end
     end
+    print("r")
 
     ##########################################################################################
     ## HYDRO
@@ -212,7 +215,7 @@ for k in 1:3
 
 
     # write result
-    df = CSV.read("results_final.csv", DataFrame ; header =true)
+    df = CSV.read("results_final.csv", DataFrame , header =true, delim =";")
     print(size(df))
     delete!(df,[673 + (k-1)*672, 674 + (k-1)*672])
 
