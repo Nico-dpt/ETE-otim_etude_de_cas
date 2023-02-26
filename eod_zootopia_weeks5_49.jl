@@ -9,6 +9,7 @@ using CSV, DataFrames
 Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
 data_file = "Donnees.xlsx"
 limit_condition_file = "results_final.csv"
+stock_hydro_limit_condition = [0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.3, 0.27, 0.38, 0.4, 0.52]
 for k in 1:11
     print(k)
     #date et heure
@@ -39,6 +40,7 @@ for k in 1:11
     Pmin_hy = zeros(Nhy)
     Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
     cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
+    stock_total_hydro = XLSX.readdata(data_file, "Stock_hydro", "B1")*1000000 #MWh
     stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
     apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S"*string(2+k*672)*":S"*string(675+k*672)) #MWh
     stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "O"*string(4+k*672)*":O"*string(677+k*672)) #MWh 
@@ -110,9 +112,7 @@ for k in 1:11
     # INITIAL constraint
     # read data condition initial/finale 
     print("a")
-    data_limit_condition = CSV.read(limit_condition_file, DataFrame , header = true, delim = ";")
-    print(data_limit_condition)
-    
+    data_limit_condition = CSV.read(limit_condition_file, DataFrame , header = true, delim = ";")    
 
     print("b")
     ## CONSTRAINT
@@ -150,7 +150,7 @@ for k in 1:11
     #hydro unit constraints
     @constraint(model, bounds_hy[t in 1:Tmax, h in 1:Nhy], Pmin_hy[h] <= Phy[t,h] <= Pmax_hy[h])
     #hydro stock constraint
-    @constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_initial[h]) #stock final = stock initial
+    @constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_limit_condition[k]*stock_total_hydro) #stock final = stock initial
     @constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h] + apport_hydro[t-1,h]) #contrainte liant stock, turbinage et apport
     @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
     @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
@@ -236,5 +236,6 @@ for k in 1:11
                    load[t]-P_fatal[t]), promote=true)
     end
     CSV.write("results_final.csv", df, delim=';')
+
 
 end

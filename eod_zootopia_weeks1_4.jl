@@ -37,6 +37,7 @@ Nhy = 1 #number of hydro generation units
 Pmin_hy = zeros(Nhy)
 Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
 cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
+stock_total_hydro = XLSX.readdata(data_file, "Stock_hydro", "B1")*1000000 #MWh
 stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
 apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S2:S675") #MWh
 stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "O4:O677") #MWh 
@@ -134,7 +135,7 @@ end
 
 #hydro stock constraint
 @constraint(model, stoch_hy_initial[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h]) # stock initial
-@constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_initial[h]) #stock final = stock initial
+@constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == 0.75 * stock_total_hydro) #stock final = stock initial
 @constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h] + apport_hydro[t-1,h]) #contrainte liant stock, turbinage et apport
 @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
 @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
