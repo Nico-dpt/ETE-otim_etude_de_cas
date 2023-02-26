@@ -5,26 +5,27 @@ using HiGHS
 #package to read excel files
 using XLSX
 
-Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
+Tmax = 673 #optimization for 1 month (4 semaines + 1er pas horaire)
 data_file = "Donnees.xlsx"
+limit_condition_file = "results_final.csv"
+stock_hydro_limit_condition = 0.7
 
 #date et heure
-date = XLSX.readdata(data_file, "conso_prodfatal", "A2:A675")
-heure = XLSX.readdata(data_file, "conso_prodfatal", "B2:B675")
+date = XLSX.readdata(data_file, "conso_prodfatal", "A8066:A8738")
+heure = XLSX.readdata(data_file, "conso_prodfatal", "B8066:B8738")
 
 #data for load and fatal generation 
-load = XLSX.readdata(data_file, "conso_prodfatal", "C2:C675")
-wind = XLSX.readdata(data_file, "conso_prodfatal", "D2:D675")
-solar = XLSX.readdata(data_file, "conso_prodfatal", "E2:E675")
-hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F2:F675")
-thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G2:G675")
+load = XLSX.readdata(data_file, "conso_prodfatal", "C8066:C8738")
+wind = XLSX.readdata(data_file, "conso_prodfatal", "D8066:D8738")
+solar = XLSX.readdata(data_file, "conso_prodfatal", "E8066:E8738")
+hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F8066:F8738")
+thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G8066:G8738")
 #total of RES
 P_fatal = wind + solar + hydro_fatal + thermal_fatal
 
 #data for thermal clusters
 Nth = 21 #number of thermal generation units
 names = XLSX.readdata(data_file, "Thermal_cluster", "B2:B22")
-
 dict_th = Dict(i=> names[i] for i in 1:Nth)
 costs_th = XLSX.readdata(data_file, "Thermal_cluster", "I2:I22") # euro/MWh
 Pmin_th = XLSX.readdata(data_file, "Thermal_cluster", "G2:G22") # MW
@@ -39,9 +40,9 @@ Pmax_hy = XLSX.readdata(data_file, "Parc_electrique", "E20") *ones(Nhy) #MW
 cost_hydro = XLSX.readdata(data_file, "Parc_electrique", "H20")*ones(Nhy) # vaut 0 ici 
 stock_total_hydro = XLSX.readdata(data_file, "Stock_hydro", "B1")*1000000 #MWh
 stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
-apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S2:S675") #MWh
-stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "O4:O677") #MWh 
-stock_min_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "M4:M677") #MWh
+apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S8066:S8738") #MWh
+stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "O8068:O8740") #MWh 
+stock_min_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "M8068:M8740") #MWh
 stock_max_hy_hard = 1.05*stock_max_hy_soft
 stock_min_hy_hard = 0.95*stock_min_hy_soft
 
@@ -111,6 +112,17 @@ model = Model(HiGHS.Optimizer)
 #############################
 #balance constraint
 @constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
+
+
+# INITIAL constraint
+# read data condition initial/finale 
+data_limit_condition = CSV.read(limit_condition_file, DataFrame , header = true, delim = ";") 
+
+
+## THERMIQUE
+#thermique initial
+Pth_initial = data_limit_condition[8065, 3:23]
+@constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
 #thermal unit Pmax constraints
 @constraint(model, max_th[t in 1:Tmax, g in 1:Nth], Pth[t,g] <= Pmax_th[g]*UCth[t,g])
 #thermal unit Pmin constraints
@@ -129,52 +141,42 @@ for g in 1:Nth
     end
 end
 
+
+##########################################################################################
+## HYDRO
 #hydro unit constraints
 @constraint(model, bounds_hy[t in 1:Tmax, h in 1:Nhy], Pmin_hy[h] <= Phy[t,h] <= Pmax_hy[h])
-@constraint(model, last_step_hydro[h in 1:Nhy], Phy[Tmax,h] == Pmin_hy[h]) 
 
 #hydro stock constraint
-@constraint(model, stoch_hy_initial[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h]) # stock initial
-@constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == 0.75 * stock_total_hydro) #stock final = stock initial
+@constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_limit_condition * stock_total_hydro) #stock final = stock initial
 @constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h] + apport_hydro[t-1,h]) #contrainte liant stock, turbinage et apport
 @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
 @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
 
+# hydro initial
+Phy_initial = data_limit_condition[8065, 24]
+stock_hydro_initial = data_limit_condition[8065, 25]
+@constraint(model, initial_Phy[h in 1:Nhy], Phy[1,h] == Phy_initial[h])
+@constraint(model, initial_stock_hy[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h])
 
-# print(stock_max_depasse_horaire[1,1] > 0)
-# @constraint(model, soft_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_soft[h] + stock_max_depasse_horaire[t,h])
-# @constraint(model, soft_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_soft[h] - stock_min_depasse_horaire[t,h])
-# @constraint(model, max_violation[h in 1:Nhy], num_violations_max[h] >= sum([stock_max_depasse_horaire[t,h] > 0 for t in 1:Tmax]))
-# @constraint(model, min_violation[h in 1:Nhy],  num_violations_min[h] >= sum([stock_min_depasse_horaire[t,h] > 0 for t in 1:Tmax]))
-# @constraint(model, num_violations_max[h in 1:Nhy] <= 20)
-# @constraint(model, num_violations_min[h in 1:Nhy] <= 20)
-
-
-#@constraint(model, nombre_de_depassement_max_hy[h in 1:Nhy], sum(depassement_max_hy[t,h] for t in 1:Tmax) <= 20)
-#@constraint(model, nombre_de_depassement_min_hy[h in 1:Nhy], sum(depassement_min_hy[t,h] for t in 1:Tmax) <= 20)
-#@constraint(model, depassement_max[h in 1:Nhy,t in 1:Tmax], (1-2*depassement_max_hy[t,h])*(stock_max_hy_soft - stock_hydro[t,h]) >= 0)
-#@constraint(model, depassement_min[h in 1:Nhy,t in 1:Tmax], (1-2*depassement_min_hy[t,h])*(stock_min_hy_soft - stock_hydro[t,h]) <= 0)
+#last STEP
+@constraint(model, last_step_hydro[h in 1:Nhy], Phy[Tmax,h] == Pmin_hy[h]) 
 
 
 
 
-
+#########################################################################################
 #weekly STEP
 @constraint(model,turbinage_max[t in 1:Tmax], Pdecharge_STEP[t]<= Pmax_STEP)
 @constraint(model,pompage_max[t in 1:Tmax], Pcharge_STEP[t]<= Pmax_STEP)
-#@constraint(model,stock_initial,stock_STEP[1] ==0)
 for i in 1:4 #modélisation des STEP sur chaque semaine
     @constraint(model, stock_STEP[1+(i-1)*168] == 0, base_name = "stock_initial_semaine_$i") #stock initial = 0 pour chaque semaine
     @constraint(model,[t in (1+(i-1)*168):(168 +(i-1)*168)], stock_STEP[t] <= stock_volume_STEP, base_name = "stock_step_MAX_semaine_$i")
     @constraint(model,[t in (2+(i-1)*168):(168 +(i-1)*168+1)], stock_STEP[t] == stock_STEP[t-1] + Pcharge_STEP[t-1]*rSTEP - Pdecharge_STEP[t-1], base_name = "stock_actuel_STEP_semaine_$i")
-    #@constraint(model, stock_STEP[1+(i-1)*168] == stock_STEP[1 + i*168], base_name = "stock_initial_final_semaine_$i") #stock initial = stock final #inutile ??    
 end
 @constraint(model,stock_STEP_initial_last_step, stock_STEP[Tmax] == stock_STEP[1])
 @constraint(model,last_step_STEP_Pturb, Pdecharge_STEP[Tmax] ==0)
-@constraint(model,last2_step_STEP_Pturb, Pdecharge_STEP[Tmax-1] ==0)
 @constraint(model,last_step_STEP_Ppomp, Pcharge_STEP[Tmax] ==0)
-@constraint(model,last2_step_STEP_Ppomp, Pcharge_STEP[Tmax-1] ==0)
-
 
 
 #contrainte sur le dernier pas de temps
@@ -182,13 +184,28 @@ end
 @constraint(model,pompage_max_final, Pcharge_STEP[Tmax]<= Pmax_STEP)
 @constraint(model,stock_max_STEP_final, stock_STEP[Tmax] <= stock_volume_STEP)
 
+
+#########################################################################################
 #battery
+# initial
+charge_battery_initial = data_limit_condition[8065 ,29]
+decharge_battery_initial = data_limit_condition[8065, 30]
+stock_battery_initial = data_limit_condition[8065, 31]
+@constraint(model, initial_charge_battery, Pcharge_battery[1] == charge_battery_initial)
+@constraint(model, initial_decharge_battery, Pdecharge_battery[1] == decharge_battery_initial)
+@constraint(model, initial_stock_battery, stock_battery[1] == stock_battery_initial)
+
+#classic
 @constraint(model,battery_decharge_max[t in 1:Tmax], Pdecharge_battery[t]<= Pmax_battery)
 @constraint(model,battery_charge_max[t in 1:Tmax], Pcharge_battery[t]<= Pmax_battery)
 @constraint(model,stock_max_battery[t in 1:Tmax], stock_battery[t] <= Pmax_battery*d_battery)
 @constraint(model,stock_actuel_battery[t in 2:Tmax+1], stock_battery[t] == stock_battery[t-1] + Pcharge_battery[t-1]*rbattery - Pdecharge_battery[t-1]/rbattery)
-@constraint(model,stock_initial_final_battery, stock_battery[1] == stock_battery[Tmax])
-@constraint(model,stock_initial_battery, stock_battery[1] == 0)
+@constraint(model,stock_initial_final_battery, stock_battery[Tmax] == stock_battery_initial)
+
+#last STEP
+@constraint(model,last_step_battery_Pturb, Pdecharge_battery[Tmax] ==0)
+@constraint(model,last_step_battery_Ppomp, Pcharge_battery[Tmax] ==0)
+
 
 #no need to print the model when it is too big
 #solve the model
@@ -213,32 +230,26 @@ hydro_stock = abs.(value.(stock_hydro))
 
 
 
-# new file created
-touch("results_final.csv")
+# write result
+df = CSV.read("results_final.csv", DataFrame , header =true, delim =";")
+print(size(df))
+delete!(df,[8065, 8066])
 
-# file handling in write mode
-f = open("results_final.csv", "w")
-
-
-write(f,"Date ;heure ;")
-
-for name in names
-    write(f, "$name ;")
+for t in 1:Tmax 
+    push!(df, vcat(date[t],
+                   heure[t],
+                   th_gen[t,:],
+                   hy_gen[t,:],
+                   hydro_stock[t,:],
+                   STEP_charge[t],
+                   STEP_decharge[t],
+                   STEP_stock[t], 
+                   battery_charge[t], 
+                   battery_decharge[t], 
+                   battery_stock[t], 
+                   P_fatal[t], 
+                   load[t], 
+                   load[t]-P_fatal[t]), promote=true)
 end
-write(f, "P_hydro ;Hydro_stock ;STEP pompage ;STEP turbinage ;STEP_stock ;Batterie injection ;Batterie soutirage ;Batterie Stock ;P_fatal ;load ;Net load \n")
-
-for t in 1:Tmax
-    write(f, "$(date[t]) ; $(heure[t]);")
-    for g in 1:Nth
-        write(f, "$(th_gen[t,g]) ; ")
-    end
-    for h in 1:Nhy
-        write(f, "$(hy_gen[t,h]); $(hydro_stock[t,h]) ;")
-    end
-    write(f, "$(STEP_charge[t]) ; $(STEP_decharge[t]); $(STEP_stock[t]) ;")
-    write(f, "$(battery_charge[t]) ; $(battery_decharge[t]) ; $(battery_stock[t]) ;")
-    write(f, "$(P_fatal[t]) ;  $(load[t]) ; $(load[t]-P_fatal[t]) \n")
-
-end
-
-close(f)
+delete!(df,[8737])
+CSV.write("results_final.csv", df, delim=';')
