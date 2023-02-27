@@ -202,7 +202,8 @@ stock_battery_initial = data_limit_condition[8065, 31]
 @constraint(model,stock_actuel_battery[t in 2:Tmax+1], stock_battery[t] == stock_battery[t-1] + Pcharge_battery[t-1]*rbattery - Pdecharge_battery[t-1]/rbattery)
 @constraint(model,stock_initial_final_battery, stock_battery[Tmax] == stock_battery_initial)
 
-#last STEP
+
+#last battery
 @constraint(model,last_step_battery_Pturb, Pdecharge_battery[Tmax] ==0)
 @constraint(model,last_step_battery_Ppomp, Pcharge_battery[Tmax] ==0)
 

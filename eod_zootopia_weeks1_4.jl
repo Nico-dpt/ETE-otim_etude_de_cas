@@ -5,7 +5,7 @@ using HiGHS
 #package to read excel files
 using XLSX
 
-Tmax = 674 #optimization for 1 month (4 semaines + 1er pas horaire)
+Tmax = 674 #optimization for 1 month (4 semaines + 1 pas horaires)
 data_file = "Donnees.xlsx"
 
 #date et heure
