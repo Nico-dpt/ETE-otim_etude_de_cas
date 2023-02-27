@@ -213,11 +213,6 @@ for k in 0:12
     @constraint(model,stock_max_battery[t in 1:Tmax], stock_battery[t] <= Pmax_battery*d_battery)
     @constraint(model,stock_actuel_battery[t in 2:Tmax+1], stock_battery[t] == stock_battery[t-1] + Pcharge_battery[t-1]*rbattery - Pdecharge_battery[t-1]/rbattery)
     
-
-
-
-
-
     #no need to print the model when it is too big
     #solve the model
     optimize!(model)
