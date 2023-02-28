@@ -9,14 +9,7 @@ data_file = "Donnees.xlsx"
 limit_condition_file = "results_final.csv"
 result_file = "results_final.csv"
 
-#data for load and fatal generation 
-load = XLSX.readdata(data_file, "conso_prodfatal", "C"*string(2+k*672)*":C"*string(675+k*672))
-wind = XLSX.readdata(data_file, "conso_prodfatal", "D"*string(2+k*672)*":D"*string(675+k*672))
-solar = XLSX.readdata(data_file, "conso_prodfatal", "E"*string(2+k*672)*":E"*string(675+k*672))
-hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F"*string(2+k*672)*":F"*string(675+k*672))
-thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G"*string(2+k*672)*":G"*string(675+k*672))
-#total of RES
-P_fatal = wind + solar + hydro_fatal + thermal_fatal
+
 #data for thermal clusters
 Nth = 21 #number of thermal generation units
 names = XLSX.readdata(data_file, "Thermal_cluster", "B2:B22")
@@ -38,6 +31,14 @@ stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
 stock_hydro_limit_condition = [0.75, 0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.3, 0.27, 0.38, 0.4, 0.52, 0.7]
 
 for k in 0:12
+    #data for load and fatal generation 
+    load = XLSX.readdata(data_file, "conso_prodfatal", "C"*string(2+k*672)*":C"*string(675+k*672))
+    wind = XLSX.readdata(data_file, "conso_prodfatal", "D"*string(2+k*672)*":D"*string(675+k*672))
+    solar = XLSX.readdata(data_file, "conso_prodfatal", "E"*string(2+k*672)*":E"*string(675+k*672))
+    hydro_fatal = XLSX.readdata(data_file, "conso_prodfatal", "F"*string(2+k*672)*":F"*string(675+k*672))
+    thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G"*string(2+k*672)*":G"*string(675+k*672))
+    #total of RES
+    P_fatal = wind + solar + hydro_fatal + thermal_fatal
     if k == 12
         Tmax = 673 #optimization for 1 month (4 semaines + 1 pas horaire)
     else
