@@ -6,8 +6,10 @@ using HiGHS
 
 function simulation(result_file,stock_hydro_limit_condition,modif_apport)
     try 
+        # nom des fihiers à lire
         data_file = "Donnees.xlsx"
         limit_condition_file = "results_final.csv"
+        # nom du fichier de sortie
         result_file = result_file
 
         
@@ -28,7 +30,7 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
         stock_total_hydro = XLSX.readdata(data_file, "Stock_hydro", "B1")*1000000 #MWh
         stock_hydro_initial = XLSX.readdata(data_file, "Stock_hydro", "F3")*ones(Nhy)
 
-
+        # liste de 13 éléments % de remplissage du stock hydro à la fin du mois
         stock_hydro_limit_condition = stock_hydro_limit_condition 
 
         for k in 0:12
@@ -40,13 +42,15 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
             thermal_fatal = XLSX.readdata(data_file, "conso_prodfatal", "G"*string(2+k*672)*":G"*string(675+k*672))
             #total of RES
             P_fatal = wind + solar + hydro_fatal + thermal_fatal
+
+            # nombre de pas de temps
             if k == 12
                 Tmax = 673 #optimization for 1 month (4 semaines + 1 pas horaire)
             else
                 Tmax = 674 #optimization for 1 month (4 semaines + 2 pas horaires)
             end
 
-            print(k)
+            print("mois ",k)
             #date et heure
             date = XLSX.readdata(data_file, "conso_prodfatal", "A"*string(2+k*672)*":A"*string(675+k*672))
             heure = XLSX.readdata(data_file, "conso_prodfatal", "B"*string(2+k*672)*":B"*string(675+k*672))
@@ -55,6 +59,7 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
             apport_hydro = XLSX.readdata(data_file, "historique_hydro", "S"*string(2+k*672)*":S"*string(675+k*672))*modif_apport[k+1] #MWh
             stock_max_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "O"*string(4+k*672)*":O"*string(677+k*672)) #MWh 
             stock_min_hy_soft = XLSX.readdata(data_file, "Stock_hydro", "M"*string(4+k*672)*":M"*string(677+k*672)) #MWh
+            # On s'aurorise à dépasser les min max historique des stock hydro de 5%
             stock_max_hy_hard = 1.05*stock_max_hy_soft
             stock_min_hy_hard = 0.95*stock_min_hy_soft
 
@@ -64,6 +69,7 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
 
             cuns = 5000*ones(Tmax) #cost of unsupplied energy €/MWh
             cexc = 0*ones(Tmax) #cost of in excess energy €/MWh
+
             #data for STEP/battery
             #weekly STEP
             Pmax_STEP = XLSX.readdata(data_file, "Parc_electrique", "E21") #MW
@@ -114,14 +120,21 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
             #############################
             #define the constraints 
             #############################
+            #balance constraint
+            @constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
+            
+
+            ###########################################################################################
             # INITIAL constraint
+            ###########################################################################################
             if k == 0 
-                @constraint(model,stock_initial_battery, stock_battery[1] == 0)
-                # @constraint(model,stock_initial_final_battery, stock_battery[1] == stock_battery[Tmax])
+                #on fixe à 0 le stock initial de la batterie
+                @constraint(model,stock_initial_battery, stock_battery[1] == 0) 
 
             else
-                # read data condition initial/finale 
+                # read data condition final mois précédent/initial mois acutel => connexion avec le mois précédent
                 data_limit_condition = CSV.read(limit_condition_file, DataFrame , header = true, delim = ";")
+
                 #thermique initial
                 Pth_initial = data_limit_condition[673 + (k-1)*672, 3:23]
                 @constraint(model, initial_Pth[g in 1:Nth], Pth[1,g] == Pth_initial[g])
@@ -134,43 +147,35 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
                 charge_battery_initial = data_limit_condition[673 + (k-1)*672 ,29]
                 decharge_battery_initial = data_limit_condition[673 + (k-1)*672, 30]
                 stock_battery_initial = data_limit_condition[673 + (k-1)*672, 31]
-                @constraint(model, initial_charge_battery, Pcharge_battery[1] == charge_battery_initial)
+                @constraint(model, initial_charge_battery, Pcharge_battery[1] == charge_battery_initial) #
                 @constraint(model, initial_decharge_battery, Pdecharge_battery[1] == decharge_battery_initial)
                 @constraint(model, initial_stock_battery, stock_battery[1] == stock_battery_initial)
-                #@constraint(model,stock_initial_final_battery, stock_battery[Tmax] == stock_battery_initial)
             end    
 
             
             # Last STEP condition
             if k!=12
+                # on fixe à 0 le Pcharge et Pdecharge de la STEP au pas de temps 673 (ligne qu'on lira pour le mois suivant)
                 @constraint(model,last2_step_STEP_Pturb, Pdecharge_STEP[Tmax-1] == 0)
                 @constraint(model,last2_step_STEP_Ppomp, Pcharge_STEP[Tmax-1] == 0)
             else
-                #last battery
+                #last battery (pas besoin quand k =12 car c'est sur la dernière ligne qu'on écrit pas dans le fichier)
                 @constraint(model,last_step_battery_Pturb, Pdecharge_battery[Tmax] ==0)
                 @constraint(model,last_step_battery_Ppomp, Pcharge_battery[Tmax] ==0)
             end
 
-            if k == 0
-                # @constraint(model,stock_initial_final_battery, stock_battery[1] == stock_battery[Tmax])
-            else
-                # @constraint(model,stock_initial_final_battery, stock_battery[Tmax] == stock_battery_initial)
-            end
 
+            ###########################################################################################
             ## CONSTRAINT
-            #balance constraint
-            @constraint(model, balance[t in 1:Tmax], sum(Pth[t,g] for g in 1:Nth) + sum(Phy[t,h] for h in 1:Nhy) + P_fatal[t] + Pdecharge_STEP[t] - Pcharge_STEP[t] +Pdecharge_battery[t] - Pcharge_battery[t] + Puns[t] - load[t] - Pexc[t] == 0)
-            ########################################################################################
-            ## THERMIQUE
+            ###########################################################################################
             
+            ## THERMIQUE
             #thermal unit Pmax constraints
             @constraint(model, max_th[t in 1:Tmax, g in 1:Nth], Pth[t,g] <= Pmax_th[g]*UCth[t,g])
             #thermal unit Pmin constraints
             @constraint(model, min_th[t in 1:Tmax, g in 1:Nth], Pmin_th[g]*UCth[t,g] <= Pth[t,g])
             #thermal unit Dmin constraints
-            print("d")
             for g in 1:Nth
-                print(g)
                     if (dmin[g] > 1)
                         @constraint(model, [t in 2:Tmax], UCth[t,g]-UCth[t-1,g]==UPth[t,g]-DOth[t,g],  base_name = "fct_th_$g")
                         @constraint(model, [t in 1:Tmax], UPth[t]+DOth[t]<=1,  base_name = "UPDOth_$g")
@@ -190,8 +195,8 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
             #hydro stock constraint
             @constraint(model, stock_hydro_final[h in 1:Nhy], stock_hydro[Tmax,h] == stock_hydro_limit_condition[k+1]*stock_total_hydro) #stock final = stock initial
             @constraint(model, stock_hydro_actual[h in 1:Nhy,t in 2:Tmax], stock_hydro[t,h] == stock_hydro[t-1,h] - Phy[t-1,h] + apport_hydro[t-1,h]) #contrainte liant stock, turbinage et apport
-            @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h])
-            @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h])
+            @constraint(model, hard_stock_max_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] <= stock_max_hy_hard[h]) # respect du remplissage max du stock
+            @constraint(model, hard_stock_min_hy[h in 1:Nhy,t in 1:Tmax], stock_hydro[t,h] >= stock_min_hy_hard[h]) # respect du remplissage min du stock
 
 
             #########################################################################################
@@ -204,18 +209,14 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
                 @constraint(model,[t in (2+(i-1)*168):(168 +(i-1)*168+1)], stock_STEP[t] == stock_STEP[t-1] + Pcharge_STEP[t-1]*rSTEP - Pdecharge_STEP[t-1], base_name = "stock_actuel_STEP_semaine_$i")
             end
 
-
-
             #########################################################################################
             # Battery constraints
-            
             #classic
             @constraint(model,battery_decharge_max[t in 1:Tmax], Pdecharge_battery[t]<= Pmax_battery)
             @constraint(model,battery_charge_max[t in 1:Tmax], Pcharge_battery[t]<= Pmax_battery)
             @constraint(model,stock_max_battery[t in 1:Tmax], stock_battery[t] <= Pmax_battery*d_battery)
             @constraint(model,stock_actuel_battery[t in 2:Tmax+1], stock_battery[t] == stock_battery[t-1] + Pcharge_battery[t-1]*rbattery - Pdecharge_battery[t-1]/rbattery)
             
-            #no need to print the model when it is too big
             #solve the model
             optimize!(model)
             #------------------------------
@@ -304,21 +305,23 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
     end
 end
 
-
+# Stock hydro de chaque fin de mois pour une simulation  
 stock_hydro_end_month_0 = [0.75, 0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.3, 0.27, 0.38, 0.4, 0.52, 0.7]
 stock_hydro_end_month_1 = [0.3 for i in 1:13]
 stock_hydro_end_month_2 = [0.7, 0.7, 0.75, 0.8, 0.70, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
-stock_hydro_end_month = [stock_hydro_end_month_1, stock_hydro_end_month_2]
+stock_hydro_end_month = [stock_hydro_end_month_1,stock_hydro_end_month_0]
 
-modif_apport_hydro_1 = [1 for i in 1:13]
-modif_apport_hydro_2 = [1.2 for i in 1:13]
-modif_apport_hydro = [modif_apport_hydro_1, modif_apport_hydro_2]
+# modification de l'apport hydro de chaque mois pour une simulation
+modif_apport_hydro_0 = [1 for i in 1:13]
+modif_apport_hydro_1 = [1.2 for i in 1:13]
+modif_apport_hydro_2 = [0.8 for i in 1:13]
+modif_apport_hydro = [modif_apport_hydro_0, modif_apport_hydro_1, modif_apport_hydro_2]
 
-for j in 1:length(stock_hydro_end_month)
-    for k in 1:length(modif_apport_hydro)
-        name = "result_stock_hy$(j)_modif_apport_hy$(k).csv"
+# pour chaque combinaison de stock hydro et de modif apport hydro, on lance une simulation
+for j in 1:length(modif_apport_hydro)
+    for k in 1:length(stock_hydro_end_month)
+        name = "result_modif_apport_hy$(j)_stock_hy$(k).csv"
         simulation(name,stock_hydro_end_month[j], modif_apport_hydro[k])
         print("##### SIMULATION $(j) $(k) FINIE #####")
     end
-    
 end
