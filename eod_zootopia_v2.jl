@@ -50,7 +50,7 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
                 Tmax = 674 #optimization for 1 month (4 semaines + 2 pas horaires)
             end
 
-            print("mois ",k)
+            print("mois ",k,"\n")
             #date et heure
             date = XLSX.readdata(data_file, "conso_prodfatal", "A"*string(2+k*672)*":A"*string(675+k*672))
             heure = XLSX.readdata(data_file, "conso_prodfatal", "B"*string(2+k*672)*":B"*string(675+k*672))
