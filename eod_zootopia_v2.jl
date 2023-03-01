@@ -309,7 +309,7 @@ end
 stock_hydro_end_month_0 = [0.75, 0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.3, 0.27, 0.38, 0.4, 0.52, 0.7]
 stock_hydro_end_month_1 = [0.3 for i in 1:13]
 stock_hydro_end_month_2 = [0.7, 0.7, 0.75, 0.8, 0.70, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
-stock_hydro_end_month = [stock_hydro_end_month_1,stock_hydro_end_month_0]
+stock_hydro_end_month = [stock_hydro_end_month_0,stock_hydro_end_month_1,stock_hydro_end_month_0]
 
 # modification de l'apport hydro de chaque mois pour une simulation
 modif_apport_hydro_0 = [1 for i in 1:13]
