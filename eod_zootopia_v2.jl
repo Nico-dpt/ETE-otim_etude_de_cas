@@ -6,7 +6,7 @@ using HiGHS
 
 function simulation(result_file,stock_hydro_limit_condition,modif_apport)
     try 
-        # nom des fihiers à lire
+        # nom des fichiers à lire
         data_file = "Donnees.xlsx"
         limit_condition_file = "results_final.csv"
         # nom du fichier de sortie
@@ -221,8 +221,8 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
             optimize!(model)
             #------------------------------
             #Results
-            @show termination_status(model)
-            @show objective_value(model)
+            #@show termination_status(model)
+            #@show objective_value(model)
 
 
             #exports results as csv file
@@ -295,33 +295,39 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport)
                     delete!(df,[8737])
                 end
                 CSV.write(result_file, df, delim=';')
-
             end
-
-
         end
     catch
         println("Impossible de résoudre, une erreur s'est produite")
+        try
+            rm(result_file)
+        catch
+            println("Fichier non créé")
+        end
     end
 end
 
 # Stock hydro de chaque fin de mois pour une simulation  
-stock_hydro_end_month_0 = [0.75, 0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.3, 0.27, 0.38, 0.4, 0.52, 0.7]
-stock_hydro_end_month_1 = [0.3 for i in 1:13]
-stock_hydro_end_month_2 = [0.7, 0.7, 0.75, 0.8, 0.70, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
-stock_hydro_end_month = [stock_hydro_end_month_0, stock_hydro_end_month_1, stock_hydro_end_month_0]
+stock_hydro_end_month_0 = [0.75, 0.77, 0.76, 0.78, 0.69, 0.57, 0.4, 0.27, 0.28, 0.39, 0.53, 0.61, 0.71]
+stock_hydro_end_month_1_fonctionne = [0.75, 0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.30, 0.27, 0.38, 0.40, 0.52, 0.7]
+
+stock_hydro_end_month = [stock_hydro_end_month_1_fonctionne,stock_hydro_end_month_0]
 
 # modification de l'apport hydro de chaque mois pour une simulation
 modif_apport_hydro_0 = [1 for i in 1:13]
 modif_apport_hydro_1 = [1.2 for i in 1:13]
 modif_apport_hydro_2 = [0.8 for i in 1:13]
-modif_apport_hydro = [modif_apport_hydro_0, modif_apport_hydro_1, modif_apport_hydro_2]
+modif_apport_hydro_3 = [2 for i in 1:13]
+modif_apport_hydro_4 = [0.2 for i in 1:13]
+
+modif_apport_hydro = [modif_apport_hydro_0, modif_apport_hydro_1]
 
 # pour chaque combinaison de stock hydro et de modif apport hydro, on lance une simulation
 for j in 1:length(modif_apport_hydro)
     for k in 1:length(stock_hydro_end_month)
-        name = "result_modif_apport_hy$(j)_stock_hy$(k).csv"
-        simulation(name,stock_hydro_end_month[j], modif_apport_hydro[k])
+        name = "modif_apport_hy$(j)_stock_hy$(k)_result.csv"
+        simulation(name,stock_hydro_end_month[k], modif_apport_hydro[j])
         print("##### SIMULATION $(j) $(k) FINIE #####")
+        CSV.write("modif_apport_hy$(j)_stock_hy$(k)_donnees.csv",DataFrame(apport_hydro = modif_apport_hydro[j], stock_hydro = stock_hydro_end_month[k]), delim = ";")
     end
 end
