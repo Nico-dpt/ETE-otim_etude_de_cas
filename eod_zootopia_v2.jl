@@ -309,51 +309,8 @@ end
 
 # Stock hydro de chaque fin de mois pour une simulation  
 stock_hydro_end_month_0_fonctionne = [0.75, 0.77, 0.75, 0.78, 0.70, 0.58, 0.5, 0.30, 0.27, 0.38, 0.40, 0.52, 0.7]
-stock_hydro_end_month_1_all_low_ = [0.64, 0.63, 0.62, 0.57, 0.47, 0.37, 0.29, 0.21, 0.17, 0.17, 0.23, 0.34, 0.59]
-stock_hydro_end_month_2_all_high = [0.86, 0.89, 0.9, 0.91, 0.92, 0.86, 0.76, 0.66, 0.57, 0.54, 0.57, 0.71, 0.81]
-mois1 = [0.74, 0.80675, 0.69225]
-mois2 = [0.763, 0.8285, 0.6975]
-mois3 = [0.7575, 0.82875, 0.68625]
-mois4 = [0.7385, 0.82225, 0.65475]
-mois5 = [0.6935, 0.80475, 0.58225]
-mois6 = [0.6115, 0.73425, 0.48875]
-mois7 = [0.524, 0.6395, 0.4085]
-mois8 = [0.4325, 0.54525, 0.31975]
-mois9 = [0.3705, 0.46875, 0.27225]
-mois10 = [0.358, 0.451, 0.265]
-mois11 = [0.4, 0.483, 0.317]
-mois12 = [0.526, 0.6195, 0.4325]
-mois13 = [0.7, 0.755, 0.645]
-stock_hydro_end_month = [stock_hydro_end_month_0_fonctionne]
-for a in mois1
-    for b in mois2
-        for c in mois3
-             for d in mois4
-                for e in mois5
-                    for f in mois6
-                        for g in mois7
-                            for h in mois8
-                                for i in mois9
-                                    for j in mois10
-                                        for k in mois11
-                                            for l in mois12
-                                                for m in mois13
-                                                    push!(stock_hydro_end_month, [a,b,c,d,e,f,g,h,i,j,k,l,m])
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
-
+stock_hydro_end_month_1 = [0.75, 0.8, 0.83, 0.85, 0.8, 0.68, 0.58, 0.32, 0.25, 0.35, 0.45, 0.55, 0.7]
+stock_hydro_end_month = [stock_hydro_end_month_0_fonctionne, stock_hydro_end_month_1]
 
 # modification de l'apport hydro de chaque mois pour une simulation
 modif_apport_hydro_0 = [1 for i in 1:13]
@@ -362,6 +319,7 @@ modif_apport_hydro_2 = [0.8 for i in 1:13]
 modif_apport_hydro_3 = [2 for i in 1:13]
 modif_apport_hydro_4 = [0.2 for i in 1:13]
 modif_apport_hydro_5 = [0.2, 0.2, 0.5, 0.6, 1, 1.2, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
+modif_apport_hydro_6 = [1.2, 0.2, 0.8, 1, 1, 1.2, 1, 0.9, 0.2, 1.8, 1.5, 0.5, 0.4]
 
 modif_apport_hydro = [modif_apport_hydro_0,
                       modif_apport_hydro_1,
@@ -376,7 +334,7 @@ for j in 1:length(modif_apport_hydro)
     for k in 1:length(stock_hydro_end_month)
         name = "$(compt)modif_apport_hy$(j)_stock_hy$(k)_result.csv"
         simulation(name,stock_hydro_end_month[k], modif_apport_hydro[j],compt)
-        print("##### SIMULATION $(j) $(k) FINIE #####\n")
+        print("##### SIMULATION $(compt) apport $(j) stock $(k) FINIE #####\n")
         CSV.write("$(compt)modif_apport_hy$(j)_stock_hy$(k)_donnees.csv",DataFrame(apport_hydro = modif_apport_hydro[j], stock_hydro = stock_hydro_end_month[k]), delim = ";")
         global compt += 1
     end
