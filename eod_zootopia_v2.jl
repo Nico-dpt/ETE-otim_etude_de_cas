@@ -129,7 +129,9 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport,numero_
             ###########################################################################################
             if k == 0 
                 #on fixe à 0 le stock initial de la batterie
-                @constraint(model,stock_initial_battery, stock_battery[1] == 0) 
+                @constraint(model,stock_initial_battery, stock_battery[1] == 0)
+                @constraint(model, initial_stock_hy[h in 1:Nhy], stock_hydro[1,h] == stock_hydro_initial[h])
+                 
 
             else
                 # read data condition final mois précédent/initial mois acutel => connexion avec le mois précédent
@@ -159,7 +161,7 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport,numero_
                 @constraint(model,last2_step_STEP_Pturb, Pdecharge_STEP[Tmax-1] == 0)
                 @constraint(model,last2_step_STEP_Ppomp, Pcharge_STEP[Tmax-1] == 0)
             else
-                #last battery (pas besoin quand k =12 car c'est sur la dernière ligne qu'on écrit pas dans le fichier)
+                #last battery (pas vraiment utile c'est sur la dernière ligne qu'on écrit pas dans le fichier)
                 @constraint(model,last_step_battery_Pturb, Pdecharge_battery[Tmax] ==0)
                 @constraint(model,last_step_battery_Ppomp, Pcharge_battery[Tmax] ==0)
             end
@@ -299,11 +301,6 @@ function simulation(result_file,stock_hydro_limit_condition,modif_apport,numero_
         end
     catch
         println("Impossible de résoudre, une erreur s'est produite\n")
-        try
-            rm(result_file)
-        catch
-            println("Fichier non créé\n")
-        end
     end
 end
 
@@ -326,7 +323,8 @@ modif_apport_hydro = [modif_apport_hydro_0,
                       modif_apport_hydro_2,
                       modif_apport_hydro_3,
                       modif_apport_hydro_4,
-                      modif_apport_hydro_5]
+                      modif_apport_hydro_5,
+                      modif_apport_hydro_6]
 
 # pour chaque combinaison de stock hydro et de modif apport hydro, on lance une simulation
 global compt = 1
